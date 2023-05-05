@@ -1,26 +1,15 @@
-assetman
-========
 
-Haxe library used to generate ninja file.
+import assetman.Builder;
 
-The goal is to scan the directories, and using the rules, generate a ninja.build
+class CustomBuilder extends Builder {
+    public function new() {
+        super();
+    }
 
-Rules
------
-
-You can create rules, that will be reused later
-
+    function configure() {
         rule('convert2').command("cp $in $out");
         rule('convert').command("cp $in $out");
-        rule('atlas').command("cat $in > $name");
-
-`$in` and `$out` are default from ninja, but here, `$name` is a variable that will be set later when rule is used
-
-Patterns
---------
-
-Pattern are use to apply rule to file sets
-
+        rule('atlas').command("cat $in > $name.png");
         var pattern = '**/*.png';
         // build foo@2x.png: convert2 ../src/foo.psd
         single(pattern).to("$filename@2x.png").usingRule('convert2');
@@ -31,12 +20,17 @@ Pattern are use to apply rule to file sets
         //     name = atlas
         bundle('images/*.png')
             .fromBuild(true)
-            .to([atlasName + '.png', atlasName + '.csv'])
+            .to([atlasName + '.png'])
             .assign('name', atlasName)
             .usingRule('atlas');
+    }
+}
+
+class Main {
 
 
-Acknowledgment
---------------
-
-This library was heavily inspired by https://github.com/tylorr/assetman
+    static function main() {
+        var builder = new CustomBuilder();
+        builder.generate("../test");
+    }
+}

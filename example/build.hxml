@@ -1,0 +1,11 @@
+## Neko
+-main Main
+-cp src
+-lib assetman
+-neko assetman.n
+
+--next
+
+-main CompareEcho
+-lib assetman
+-neko compare_echo.n
