@@ -8,14 +8,14 @@ class SingleBuilder implements BuilderInterface {
     public var rule : String;
 
     public function new(pattern) {
-      this.pattern = pattern;
-      this.buildRelative = false;
-      this.assignments = new Map();
+        this.pattern = pattern;
+        this.buildRelative = false;
+        this.assignments = new Map();
     }
 
-    public function fromBuild( build_relative ) {
-      this.buildRelative = build_relative;
-      return this;
+    public function fromBuild(build_relative) {
+        this.buildRelative = build_relative;
+        return this;
     }
 
     public function to(target) {
@@ -29,12 +29,12 @@ class SingleBuilder implements BuilderInterface {
     }
 
     public function assign(key, value) {
-      this.assignments[key] = value;
-      return this;
+        this.assignments[key] = value;
+        return this;
     }
 
     public function usingRule(rule) {
-      this.rule = rule;
-      return this;
+        this.rule = rule;
+        return this;
     }
 }
