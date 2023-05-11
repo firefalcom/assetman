@@ -7,6 +7,7 @@ import haxe.io.Path;
 import sys.io.File;
 import sys.FileSystem;
 import hx.files.Dir;
+using StringTools;
 
 private typedef PostBuilder = {
     var builder: BuilderInterface;
@@ -120,25 +121,35 @@ abstract class Builder {
 
     // Generates eges for file
     function compileSingle(ninja : NinjaBuilder, _single : BuilderInterface, files : Array<String>, srcPath: String) {
-        var outputs = [];
+        var outputs  : Array<String> = [];
         var single = cast(_single, SingleBuilder);
 
         for(file in files) {
             var inputPath = Path.join([srcPath, file]);
-            var filename = hx.files.Path.of(file).filenameStem;
-            var outName = StringTools.replace(single.target, "$filename", filename);
-            var parent = hx.files.Path.of(file).parent;
-            var outputPath : String;
+            var filepath = hx.files.Path.of(file);
+            var filename = filepath.filenameStem;
+            var directory = filepath.parent.getAbsolutePath();
+            var filename_without_extension = directory + '/' + filename;
+            var outName = single.targets.map(function(a) {return a.replace("$filename_without_extension", filename_without_extension).replace("$filename", filename).replace("$directory", directory);});
+            var assignments = new Map();
 
-            if( parent != null ){
-                outputPath = Path.join( [relativePath( FileSystem.absolutePath(""), parent.getAbsolutePath()), outName]);
-            } else {
-                outputPath = outName;
+            for(key => value in single.assignments) {
+                assignments[ key ] =  value.replace("$filename_without_extension", filename_without_extension).replace("$filename", filename).replace("$directory", directory);
             }
-            var edge = ninja.edge([outputPath]);
+
+            var parent = hx.files.Path.of(file).parent;
+            var outputPaths : Array<String>;
+
+            if(parent != null) {
+                outputPaths = outName.map(function(a) { return Path.join([relativePath(FileSystem.absolutePath(""), parent.getAbsolutePath()), a]);});
+            } else {
+                outputPaths = outName;
+            }
+
+            var edge = ninja.edge(outputPaths);
             edge.from(inputPath).usingRule(single.rule);
-            edgeAssign(edge, single.assignments);
-            outputs.push(outputPath);
+            edgeAssign(edge, assignments);
+            outputs = outputs.concat(outputPaths);
         }
 
         return outputs;
