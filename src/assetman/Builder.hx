@@ -81,7 +81,7 @@ abstract class Builder {
                     builder: edgeBuilder,
                     compiler: compileBuilder
                 });
-                return;
+                continue;
             }
 
             params.srcPatterns[edgeBuilder.pattern] = true;
