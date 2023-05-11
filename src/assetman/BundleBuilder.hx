@@ -1,7 +1,7 @@
 package assetman;
 
 // Helper class used in config script to assemble bundle edges
-class BundleBuilder implements BuilderInterface{
+class BundleBuilder implements BuilderInterface {
 
     public var pattern : String;
     public var buildRelative : Bool;
@@ -9,29 +9,29 @@ class BundleBuilder implements BuilderInterface{
     public var targets : Array<String>;
     public var rule : String;
 
-    public function new (pattern) {
-      this.pattern = pattern;
-      this.buildRelative = false;
-      this.assignments = new Map();
-      this.targets = [];
+    public function new(pattern) {
+        this.pattern = pattern;
+        this.buildRelative = false;
+        this.assignments = new Map();
+        this.targets = [];
     }
 
     public function fromBuild(fromBuild) {
-      this.buildRelative = fromBuild;
-      return this;
+        this.buildRelative = fromBuild;
+        return this;
     }
 
     public function to(files) {
-      targets = targets.concat(files);
-      return this;
+        targets = targets.concat(files);
+        return this;
     }
 
     public function assign(key, value) {
-      this.assignments[key] = value;
-      return this;
+        this.assignments[key] = value;
+        return this;
     }
 
     public function usingRule(rule) {
-      this.rule = rule;
+        this.rule = rule;
     }
 }

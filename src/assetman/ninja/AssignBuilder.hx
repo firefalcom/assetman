@@ -12,6 +12,6 @@ class AssignBuilder {
 
     // Write the assignation into a `stream`.
     public function write(stream: haxe.io.Output) {
-        stream.writeString( '${name} = ${value}\n' );
+        stream.writeString('${name} = ${value}\n');
     }
 }
