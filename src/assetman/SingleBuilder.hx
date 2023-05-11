@@ -2,7 +2,7 @@ package assetman;
 
 class SingleBuilder implements BuilderInterface {
     public var pattern : String;
-    public var target : String;
+    public var targets : Array<String>;
     public var buildRelative : Bool;
     public var assignments : Map<String, String>;
     public var rule : String;
@@ -19,13 +19,13 @@ class SingleBuilder implements BuilderInterface {
     }
 
     public function to(target) {
-      this.target = target;
-      return this;
+        this.targets = target;
+        return this;
     }
 
     public function toExt(ext) {
-      this.target = '$$filename' + ext;
-      return this;
+        this.targets = ['$$filename' + ext];
+        return this;
     }
 
     public function assign(key, value) {
