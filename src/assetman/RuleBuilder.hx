@@ -10,7 +10,7 @@ class RuleBuilder {
         _name = name;
     }
 
-    public function command(command){
+    public function command(command) {
         _command = command;
     }
 

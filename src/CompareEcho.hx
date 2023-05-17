@@ -7,44 +7,36 @@ class CompareEcho {
 
 
     static function main() {
-
         var args = Sys.args();
-
         var current_directory : String;
+
         if(args.length >= 3) {
             current_directory = args[2];
         } else {
             current_directory = FileSystem.absolutePath("");
         }
 
-        trace( Sys.args().join('\n') );
-
         // construct search patterns
-        var patterns = args[0].split(' ').map(function(a){return a;});
+        var patterns = args[0].split(' ').map(function(a) {return a;});
         var pattern = patterns.length > 1 ? '{' + patterns.join(',') + '}' : patterns[0];
-
-        trace('Pattern ${pattern} with cw');
         // collect files that match pattern
         var dir = Dir.of(current_directory);
         var files = dir.findFiles(pattern).map(
-            function(a) {
-                return relativePath( FileSystem.absolutePath(current_directory), a.path.getAbsolutePath() );
-            });
-        files.sort( Reflect.compare );
+        function(a) {
+            return relativePath(FileSystem.absolutePath(current_directory), a.path.getAbsolutePath());
+        });
+        files.sort(Reflect.compare);
         var files_as_text = files.join('\n');
-
-        trace(files_as_text);
-
         // update file list in output if they don't match
         var outpath = args[1];
         var write_file : Bool = true;
 
-        if( sys.FileSystem.exists( outpath )){
-            var oldfiles = sys.io.File.getContent( outpath );
+        if(sys.FileSystem.exists(outpath)) {
+            var oldfiles = sys.io.File.getContent(outpath);
             write_file = oldfiles != files_as_text;
         }
 
-        if(write_file){
+        if(write_file) {
             sys.io.File.saveContent(outpath, files_as_text);
         }
     }
