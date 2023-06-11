@@ -1,0 +1,14 @@
+{
+    "name": "assetman",
+    "url" : "https://github.com/firefalcom/assetman",
+    "license": "MIT",
+    "tags": [],
+    "description": "This library is use to create ninja generator.",
+    "version": "0.1.0",
+    "classPath": "src/",
+    "releasenote": "Initial release, everything is working correctly.",
+    "contributors": ["crazyjul"],
+    "dependencies": {
+      "haxe-files": ""
+    },
+  }

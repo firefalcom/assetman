@@ -3,7 +3,8 @@ package assetman;
 // Helper class used in config script to assemble bundle edges
 class BundleBuilder implements BuilderInterface {
 
-    public var pattern : String;
+    public var pattern : Pattern;
+    public var excludes : Array<Pattern>;
     public var buildRelative : Bool;
     public var assignments : Map<String, String>;
     public var targets : Array<String>;
