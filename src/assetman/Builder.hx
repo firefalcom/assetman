@@ -8,6 +8,7 @@ import sys.io.File;
 import sys.FileSystem;
 import hx.files.Dir;
 using StringTools;
+using hx.strings.Strings;
 
 private typedef PostBuilder = {
     var builder: BuilderInterface;
@@ -18,7 +19,7 @@ private typedef Params = {
     var ninja : NinjaBuilder;
     var srcPath: String;
     var postBuilders: Array<PostBuilder>;
-    var srcPatterns: Map<String, Bool>;
+    var srcPatterns: Map<Pattern, Bool>;
     var outputs: Array<String>;
 }
 
@@ -85,12 +86,58 @@ abstract class Builder {
                 continue;
             }
 
+            if(!StringTools.endsWith(params.srcPath, "/")) {
+                params.srcPath += '/';
+            }
+
             params.srcPatterns[edgeBuilder.pattern] = true;
-            var dir = Dir.of(params.srcPath);
-            var files = dir.findFiles(edgeBuilder.pattern).map(
+
+            var search_root_path : String;
+            var file_pattern : EReg;
+            switch( edgeBuilder.pattern ) {
+                case Glob( pattern ):
+                    search_root_path = params.srcPath + pattern.substringBefore("*").substringBeforeLast("/");
+                    file_pattern = hx.files.GlobPatterns.toEReg(pattern);
+
+                case RegEx( base_directory, pattern ):
+                    search_root_path = params.srcPath + '/' + base_directory;
+                    file_pattern = new EReg( StringTools.replace( params.srcPath, '/', '\\/') + pattern, "" );
+            }
+
+            var excludes_regexp = edgeBuilder.excludes.map( function(pattern){
+                switch( pattern ) {
+                    case Glob( pattern ):
+                        return hx.files.GlobPatterns.toEReg(pattern);
+
+                    case RegEx( base_directory, pattern ):
+                        return new EReg( StringTools.replace( params.srcPath, '/', '\\/') + pattern, "" );
+                }
+            } );
+
+            final search_root_offset = params.srcPath.endsWith("/") ? params.srcPath.length8() : params.srcPath.length8() + 1;
+            var hx_files = [];
+            Dir.of(search_root_path).walk(
+               function(file) {
+                  var file_path = file.path.toString().substr8(search_root_offset);
+                  if (file_pattern.match(file_path)) {
+                    for(exclude in excludes_regexp) {
+                        if(exclude.match(file_path))
+                        {
+                            return;
+                        }
+                    }
+                    hx_files.push(file);
+                  }
+               },
+               function(dir) {
+                  return true;
+               }
+            );
+            var files = hx_files.map(
             function(a) {
                 return relativePath(FileSystem.absolutePath(params.srcPath), a.path.getAbsolutePath());
             });
+
             var outputs = compileBuilder(params.ninja, edgeBuilder, files, params.srcPath);
             params.outputs = params.outputs.concat(outputs);
         }
@@ -102,7 +149,13 @@ abstract class Builder {
         var postOutputs = [];
 
         for(post in params.postBuilders) {
-            var pattern =  hx.files.GlobPatterns.toEReg(post.builder.pattern);
+            var pattern : EReg;
+
+            switch( post.builder.pattern) {
+                case Glob(glob_pattern): pattern = hx.files.GlobPatterns.toEReg(glob_pattern);
+                case RegEx(base, regex_pattern ): pattern = new EReg( regex_pattern, "" );
+            }
+
             var files = params.outputs.filter(function(output) {
                 return pattern.match(output);
             });
@@ -125,31 +178,40 @@ abstract class Builder {
         var single = cast(_single, SingleBuilder);
 
         for(file in files) {
-            var inputPath = Path.join([srcPath, file]);
+
+            var parent = hx.files.Path.of(file).parent;
+
+            var relative_directory = parent != null ? relativePath(FileSystem.absolutePath(""), parent.getAbsolutePath()) : "";
+
+            var input_path = Path.join([srcPath, file]);
             var filepath = hx.files.Path.of(file);
             var filename = filepath.filenameStem;
             var directory = filepath.parent.getAbsolutePath();
+            var relative_filepath =  Path.join([relative_directory, filename]);
             var filename_without_extension = directory + '/' + filename;
-            var outName = single.targets.map(function(a) {return a.replace("$filename_without_extension", filename_without_extension).replace("$filename", filename).replace("$directory", directory);});
+
+            var output_paths = single.targets.map(function(a) {
+                return a
+                    .replace("$filename_without_extension", filename_without_extension)
+                    .replace("$filename", filename)
+                    .replace("$filepath", relative_filepath)
+                    .replace("$directory", directory);
+                });
+
             var assignments = new Map();
 
             for(key => value in single.assignments) {
-                assignments[ key ] =  value.replace("$filename_without_extension", filename_without_extension).replace("$filename", filename).replace("$directory", directory);
+                assignments[ key ] =
+                    value.replace("$filename_without_extension", filename_without_extension)
+                        .replace("$filepath", relative_filepath)
+                        .replace("$filename", filename)
+                        .replace("$directory", directory);
             }
 
-            var parent = hx.files.Path.of(file).parent;
-            var outputPaths : Array<String>;
-
-            if(parent != null) {
-                outputPaths = outName.map(function(a) { return Path.join([relativePath(FileSystem.absolutePath(""), parent.getAbsolutePath()), a]);});
-            } else {
-                outputPaths = outName;
-            }
-
-            var edge = ninja.edge(outputPaths);
-            edge.from(inputPath).usingRule(single.rule);
+            var edge = ninja.edge(output_paths);
+            edge.from(input_path).usingRule(single.rule);
             edgeAssign(edge, assignments);
-            outputs = outputs.concat(outputPaths);
+            outputs = outputs.concat(output_paths);
         }
 
         return outputs;
@@ -177,12 +239,12 @@ abstract class Builder {
     };
 
     // Generate file list edge that watches path 'path' and generates file 'filename'
-    function generateGlobLists(ninja : NinjaBuilder, filename: String, patternMap: Map<String, Bool>, path : String) {
+    function generateGlobLists(ninja : NinjaBuilder, filename: String, patternMap: Map<Pattern, Bool>, path : String) {
         var patternList = [ for(key=>value in patternMap) key];
 
         if(patternList.length > 0) {
             var globs = patternList.join(' ');
-            trace('globs ${globs}');
+
             ninja.edge([filename])
             .from('.dirty')
             .assign('glob', globs)
@@ -201,14 +263,20 @@ abstract class Builder {
         return obj;
     }
 
-    function single(arg:String) {
-        var obj = new SingleBuilder(arg);
+    overload extern inline function single(baseDirectory : String, regex : String) {
+        var obj = new SingleBuilder(RegEx(baseDirectory, regex));
+        singles.push(obj);
+        return obj;
+    }
+
+    overload extern inline function single(arg:String) {
+        var obj = new SingleBuilder(Glob(arg));
         singles.push(obj);
         return obj;
     }
 
     function bundle(arg:String) {
-        var obj = new BundleBuilder(arg);
+        var obj = new BundleBuilder(Glob(arg));
         bundles.push(obj);
         return obj;
     }
@@ -219,6 +287,10 @@ abstract class Builder {
             srcPath = relativePath(FileSystem.absolutePath(""), srcPath);
         } else {
             srcPath = '.';
+        }
+
+        if(!StringTools.endsWith(srcPath, '/')) {
+            srcPath = srcPath + '/';
         }
 
         var generatorPath = Sys.programPath();

@@ -1,7 +1,8 @@
 package assetman;
 
 class SingleBuilder implements BuilderInterface {
-    public var pattern : String;
+    public var pattern : Pattern;
+    public var excludes : Array<Pattern> = [];
     public var targets : Array<String>;
     public var buildRelative : Bool;
     public var assignments : Map<String, String>;
@@ -11,6 +12,11 @@ class SingleBuilder implements BuilderInterface {
         this.pattern = pattern;
         this.buildRelative = false;
         this.assignments = new Map();
+    }
+
+    public overload extern inline function exclude( value : String ) {
+        excludes.push( Glob(value) );
+        return this;
     }
 
     public function fromBuild(build_relative) {
