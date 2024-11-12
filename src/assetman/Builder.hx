@@ -38,6 +38,7 @@ abstract class Builder {
     function setupUtilRules(ninja : NinjaBuilder, srcPath : String) {
         // Setup rule for building file list file
         var compareEchoPath = hx.files.Path.of(Sys.programPath()).parent.getAbsolutePath() + '/compare_echo.n';
+        compareEchoPath = compareEchoPath.replace(" ", "$ ").replace(":", "$:");
         var command = 'neko ' + compareEchoPath + ' "$$glob" $$out $$path';
         ninja.rule('COMPARE_ECHO')
         .restat(true)
@@ -184,6 +185,8 @@ abstract class Builder {
             var relative_directory = parent != null ? relativePath(FileSystem.absolutePath(""), parent.getAbsolutePath()) : "";
 
             var input_path = Path.join([srcPath, file]);
+            var input_path = input_path.replace(" ", "$ ");
+            var input_path = input_path.replace(":", "$:");
             var filepath = hx.files.Path.of(file);
             var filename = filepath.filenameStem;
             var directory = filepath.parent.getAbsolutePath();
@@ -195,7 +198,9 @@ abstract class Builder {
                     .replace("$filename_without_extension", filename_without_extension)
                     .replace("$filename", filename)
                     .replace("$filepath", relative_filepath)
-                    .replace("$directory", directory);
+                    .replace("$directory", directory)
+                    .replace(" ", "$ ")
+                    .replace(":", "$:");
                 });
 
             var assignments = new Map();
@@ -316,6 +321,7 @@ abstract class Builder {
         var srcFileList = '.src_files';
         // generate glob watcher for patterns in the soruce dir
         generateGlobLists(ninja, srcFileList, params.srcPatterns, srcPath);
+        generatorPath = generatorPath.replace(" ", "$ ").replace(":", "$:");
         // ninja generator command
         ninja.edge(['build.ninja'])
         .from([generatorPath, srcFileList])
