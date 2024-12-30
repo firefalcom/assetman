@@ -193,6 +193,7 @@ abstract class Builder {
             var directory = hx.files.Path.of(filepath.getAbsolutePath()).parent.getAbsolutePath();
             var relative_filepath =  Path.join([relative_directory, filename]);
             var filename_without_extension = directory + '/' + filename;
+            var ext = filepath.filenameExt;
 
             var output_paths = single.targets.map(function(a) {
                 return a
@@ -200,6 +201,7 @@ abstract class Builder {
                     .replace("$filename", filename)
                     .replace("$filepath", relative_filepath)
                     .replace("$directory", directory)
+                    .replace("$ext", ext)
                     .replace(" ", "$ ")
                     .replace(":", "$:");
                 });
