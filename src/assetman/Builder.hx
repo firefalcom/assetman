@@ -184,14 +184,16 @@ abstract class Builder {
 
             var relative_directory = parent != null ? relativePath(FileSystem.absolutePath(""), parent.getAbsolutePath()) : "";
 
-            var input_path = Path.join([srcPath, file]);
-            var input_path = input_path.replace(" ", "$ ");
-            var input_path = input_path.replace(":", "$:");
+            var input_path = Path.join([srcPath, file])
+                .replace(" ", "$ ")
+                .replace(":", "$:");
             var filepath = hx.files.Path.of(file);
             var filename = filepath.filenameStem;
-            var directory = filepath.parent.getAbsolutePath();
+
+            var directory = hx.files.Path.of(filepath.getAbsolutePath()).parent.getAbsolutePath();
             var relative_filepath =  Path.join([relative_directory, filename]);
             var filename_without_extension = directory + '/' + filename;
+            var ext = filepath.filenameExt;
 
             var output_paths = single.targets.map(function(a) {
                 return a
@@ -199,6 +201,7 @@ abstract class Builder {
                     .replace("$filename", filename)
                     .replace("$filepath", relative_filepath)
                     .replace("$directory", directory)
+                    .replace("$ext", ext)
                     .replace(" ", "$ ")
                     .replace(":", "$:");
                 });
