@@ -9,6 +9,12 @@ import sys.FileSystem;
 import hx.files.Dir;
 using StringTools;
 using hx.strings.Strings;
+import haxe.ds.Either;
+
+private abstract OneOf<L, R>(Either<L, R>) from Either<L, R> {
+    @:from public static function fromL<L, R>(val:L):OneOf<L, R> return Left(val);
+    @:from public static function fromR<L, R>(val:R):OneOf<L, R> return Right(val);
+}
 
 private typedef PostBuilder = {
     var builder: BuilderInterface;
@@ -21,6 +27,14 @@ private typedef Params = {
     var postBuilders: Array<PostBuilder>;
     var srcPatterns: Map<Pattern, Bool>;
     var outputs: Array<String>;
+}
+
+function flatMap<T, U>(arr: Array<T>, fn: T -> Array<U>): Array<U> {
+    var result: Array<U> = [];
+    for (item in arr) {
+        result = result.concat(fn(item));
+    }
+    return result;
 }
 
 abstract class Builder {
@@ -93,47 +107,67 @@ abstract class Builder {
 
             params.srcPatterns[edgeBuilder.pattern] = true;
 
-            var search_root_path : String;
-            var file_pattern : EReg;
+            var root_pattern_map : Map<String, Array<EReg>> = new Map();
+
             switch( edgeBuilder.pattern ) {
                 case Glob( pattern ):
-                    search_root_path = params.srcPath + pattern.substringBefore("*").substringBeforeLast("/");
-                    file_pattern = hx.files.GlobPatterns.toEReg(pattern);
+                    var search_root_path = params.srcPath + pattern.substringBefore("*").substringBeforeLast("/");
+                    var file_pattern = hx.files.GlobPatterns.toEReg(pattern);
+                    if(!root_pattern_map.exists(search_root_path)) root_pattern_map[search_root_path] = [];
+                    root_pattern_map[search_root_path].push(file_pattern);
+
+                case ArrayGlob( patterns ):
+                    for(pattern in patterns) {
+                        var search_root_path = params.srcPath + pattern.substringBefore("*").substringBeforeLast("/");
+                        var file_pattern = hx.files.GlobPatterns.toEReg(pattern);
+                        if(!root_pattern_map.exists(search_root_path)) root_pattern_map[search_root_path] = [];
+                        root_pattern_map[search_root_path].push(file_pattern);
+                    }
 
                 case RegEx( base_directory, pattern ):
-                    search_root_path = params.srcPath + '/' + base_directory;
-                    file_pattern = new EReg( StringTools.replace( params.srcPath, '/', '\\/') + pattern, "" );
+                    var search_root_path = params.srcPath + '/' + base_directory;
+                    var file_pattern = new EReg( StringTools.replace( params.srcPath, '/', '\\/') + pattern, "" );
+                    if(!root_pattern_map.exists(search_root_path)) root_pattern_map[search_root_path] = [];
+                    root_pattern_map[search_root_path].push(file_pattern);
             }
 
-            var excludes_regexp = edgeBuilder.excludes.map( function(pattern){
+            var excludes_regexp = flatMap(edgeBuilder.excludes, function( pattern ) {
                 switch( pattern ) {
                     case Glob( pattern ):
-                        return hx.files.GlobPatterns.toEReg(pattern);
+                        return [ hx.files.GlobPatterns.toEReg( pattern ) ];
 
                     case RegEx( base_directory, pattern ):
-                        return new EReg( StringTools.replace( params.srcPath, '/', '\\/') + pattern, "" );
+                        return [ new EReg( StringTools.replace( params.srcPath, '/', '\\/') + pattern, "" ) ];
+
+                    case ArrayGlob( patterns ):
+                        return [ for(pattern in patterns) hx.files.GlobPatterns.toEReg( pattern ) ];
                 }
             } );
 
             final search_root_offset = params.srcPath.endsWith("/") ? params.srcPath.length8() : params.srcPath.length8() + 1;
             var hx_files = [];
-            Dir.of(search_root_path).walk(
-               function(file) {
-                  var file_path = file.path.toString().substr8(search_root_offset);
-                  if (file_pattern.match(file_path)) {
-                    for(exclude in excludes_regexp) {
-                        if(exclude.match(file_path))
-                        {
-                            return;
-                        }
-                    }
-                    hx_files.push(file);
-                  }
-               },
-               function(dir) {
-                  return true;
-               }
-            );
+
+            for(search_root_path => file_patterns in root_pattern_map) {
+                Dir.of(search_root_path).walk(
+                   function(file) {
+                      var file_path = file.path.toString().substr8(search_root_offset);
+
+                      for(file_pattern in file_patterns) {
+                          if (file_pattern.match(file_path)) {
+                            for(exclude in excludes_regexp) {
+                                if(exclude.match(file_path)) {
+                                    return;
+                                }
+                            }
+                            hx_files.push(file);
+                          }
+                      }
+                   },
+                   function(dir) {
+                      return true;
+                   }
+                );
+            }
             var files = hx_files.map(
             function(a) {
                 return relativePath(FileSystem.absolutePath(params.srcPath), a.path.getAbsolutePath());
@@ -155,6 +189,8 @@ abstract class Builder {
             switch( post.builder.pattern) {
                 case Glob(glob_pattern): pattern = hx.files.GlobPatterns.toEReg(glob_pattern);
                 case RegEx(base, regex_pattern ): pattern = new EReg( regex_pattern, "" );
+                case ArrayGlob(patterns):
+                    throw ":TODO:";
             }
 
             var files = params.outputs.filter(function(output) {
@@ -277,8 +313,17 @@ abstract class Builder {
         return obj;
     }
 
-    overload extern inline function single(arg:String) {
-        var obj = new SingleBuilder(Glob(arg));
+    overload extern inline function single(arg:OneOf<String, Array<String>>) {
+        var pattern:Pattern;
+
+        switch(arg) {
+            case Left(l):
+            pattern = Glob(l);
+            case Right(r):
+            pattern = ArrayGlob(r);
+        }
+
+        var obj = new SingleBuilder(pattern);
         singles.push(obj);
         return obj;
     }

@@ -1,5 +1,12 @@
 package assetman;
 
+import haxe.ds.Either;
+
+private abstract OneOf<L, R>(Either<L, R>) from Either<L, R> {
+    @:from public static function fromL<L, R>(val:L):OneOf<L, R> return Left(val);
+    @:from public static function fromR<L, R>(val:R):OneOf<L, R> return Right(val);
+}
+
 class SingleBuilder implements BuilderInterface {
     public var pattern : Pattern;
     public var excludes : Array<Pattern> = [];
@@ -14,8 +21,15 @@ class SingleBuilder implements BuilderInterface {
         this.assignments = new Map();
     }
 
-    public overload extern inline function exclude( value : String ) {
-        excludes.push( Glob(value) );
+    public overload extern inline function exclude( arg:OneOf<String, Array<String>> ) {
+
+        switch(arg) {
+            case Left(value):
+            excludes.push( Glob(value) );
+            case Right(value):
+            excludes.push( ArrayGlob(value) );
+        }
+
         return this;
     }
 
