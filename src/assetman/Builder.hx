@@ -231,25 +231,43 @@ abstract class Builder {
             var filename_without_extension = directory + '/' + filename;
             var ext = filepath.filenameExt;
 
+            var regex = ~/#\{(\w*)\/(\w*)\/(\w*)\}/;
+
+            var replacements = [
+                "filename_without_extension" => filename_without_extension,
+                "filename" => filename,
+                "filepath" => relative_filepath,
+                "directory" => directory,
+                "ext" => ext
+            ];
+
             var output_paths = single.targets.map(function(a) {
+
+                if(regex.match(a)) {
+                    var str = replacements[regex.matched(1)];
+                    str = str.replace(regex.matched(2), regex.matched(3));
+                    a = a.replace(regex.matched(0), str);
+                }
+
+                for(k => v in replacements) {
+                    a = a.replace("$" + k, v);
+                }
+
                 return a
-                    .replace("$filename_without_extension", filename_without_extension)
-                    .replace("$filename", filename)
-                    .replace("$filepath", relative_filepath)
-                    .replace("$directory", directory)
-                    .replace("$ext", ext)
                     .replace(" ", "$ ")
                     .replace(":", "$:");
                 });
 
+
             var assignments = new Map();
 
             for(key => value in single.assignments) {
-                assignments[ key ] =
-                    value.replace("$filename_without_extension", filename_without_extension)
-                        .replace("$filepath", relative_filepath)
-                        .replace("$filename", filename)
-                        .replace("$directory", directory);
+
+                for(k => v in replacements) {
+                    value = value.replace("$" + k, v);
+                }
+
+                assignments[ key ] = value;
             }
 
             var edge = ninja.edge(output_paths);
